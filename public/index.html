@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WordBridge | CodeAlpha Language Translation Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070b;--panel:#0a0d13;--line:#1c2230;--text:#e8ebf2;--mute:#7b8497;--acc:#7aa2ff;--accd:#0b1a3a}
+[data-theme=light]{--bg:#f5f7fb;--panel:#fff;--line:#d9dfec;--text:#141a28;--mute:#5d677c;--acc:#2f5bd8}
+.hbtn{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;cursor:pointer;font-size:1rem}
+.sp{margin-left:auto}
+.find{width:100%;margin-top:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font:inherit;font-size:.9rem;color:var(--text);outline:none}
+.bar{align-items:start}.swap{height:50px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.logo{width:44px;height:44px;border-radius:12px;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:22px}
+h1{font-size:1.4rem;margin:0}
+header p{margin:2px 0 0;color:var(--mute);font-size:.85rem}
+.bar{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;margin-bottom:14px}
+.sel{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:0 12px}
+.sel span{color:var(--mute);font-size:.75rem}
+select,textarea,button{font:inherit;color:inherit}
+select{flex:1;min-width:0;background:transparent;border:0;padding:14px 0;outline:none}
+select option{background:var(--panel)}
+.swap{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:56px;cursor:pointer;font-size:1.2rem}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px;border-bottom:1px solid var(--line)}
+.chip{white-space:nowrap;border:1px solid var(--line);background:transparent;border-radius:999px;padding:7px 14px;cursor:pointer;font-size:.9rem}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#05070b;font-weight:600}
+textarea,.out{flex:1;min-height:170px;padding:16px;font-size:1.1rem;line-height:1.5;background:transparent;border:0;outline:none;resize:none;width:100%}
+.out{white-space:pre-wrap;overflow-wrap:anywhere}
+.out.empty{color:var(--mute)}
+.foot{display:flex;align-items:center;gap:6px;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap}
+.foot button{background:transparent;border:0;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--mute)}
+.foot button:hover{color:var(--text);background:var(--line)}
+.count{margin-left:auto;color:var(--mute);font-size:.8rem}
+.go{background:var(--acc)!important;color:#05070b!important;font-weight:600;padding:10px 18px!important;border-radius:10px!important;margin-left:auto}
+.go:disabled{opacity:.6}
+.note{text-align:center;color:var(--mute);font-size:.8rem;margin-top:20px}
+.err{color:#ff7b7b}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media(max-width:700px){.cards{grid-template-columns:1fr}.bar{grid-template-columns:1fr 1fr}.swap{display:none}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="logo">文</div>
+  <div><h1>WordBridge</h1><p>Universal translation · 30+ languages · speech &amp; copy</p></div>
+  <button class="hbtn sp" id="theme" aria-label="Toggle theme">☀</button>
+</header>
+
+<div class="bar">
+  <div><label class="sel"><span>From</span><select id="from"></select></label><input class="find" id="findFrom" placeholder="Search languages…"></div>
+  <button class="swap" id="swap" title="Swap languages" aria-label="Swap languages">⇄</button>
+  <div><label class="sel"><span>To</span><select id="to"></select></label><input class="find" id="findTo" placeholder="Search languages…"></div>
+</div>
+
+<div class="cards">
+  <section class="card">
+    <div class="chips" id="chipsFrom"></div>
+    <textarea id="src" maxlength="5000" placeholder="Type or paste text here"></textarea>
+    <div class="foot">
+      <button id="listenSrc">🔊 Listen</button>
+      <button id="clear">✕ Clear</button>
+      <span class="count" id="count">0/5000</span>
+    </div>
+  </section>
+  <section class="card">
+    <div class="chips" id="chipsTo"></div>
+    <div class="out empty" id="out" aria-live="polite">Translation appears here</div>
+    <div class="foot">
+      <button id="listenOut">🔊 Listen</button>
+      <button id="copy">⧉ Copy</button>
+      <button class="go" id="go">Translate</button>
+    </div>
+  </section>
+</div>
+<p class="note">Translated by the WordBridge server. Speech runs in your browser.</p>
+</main>
+
+<script>
+let LANGS={};
+const QUICK=['en','es','fr','de','hi','te','ta'];
+const $=id=>document.getElementById(id);
+const from=$('from'),to=$('to'),src=$('src'),out=$('out'),go=$('go');
+let lastText='',detected='';
+$('theme').onclick=()=>{const l=document.documentElement.dataset.theme==='light';document.documentElement.dataset.theme=l?'':'light';$('theme').textContent=l?'☀':'🌙'};
+
+function fill(sel,auto,q=''){
+  const keep=sel.value;
+  sel.innerHTML=(auto?'<option value="auto">Auto-detect</option>':'')+
+    Object.entries(LANGS).filter(([c,n])=>n.toLowerCase().includes(q.toLowerCase())).map(([c,n])=>`<option value="${c}">${n}</option>`).join('');
+  if([...sel.options].some(o=>o.value===keep))sel.value=keep;
+}
+$('findFrom').oninput=e=>{fill(from,true,e.target.value);sync()};
+$('findTo').oninput=e=>{fill(to,false,e.target.value);sync()};
+function chips(box,sel,auto){
+  box.innerHTML='';
+  (auto?['auto',...QUICK]:QUICK).forEach(c=>{
+    const b=document.createElement('button');
+    b.className='chip';b.dataset.c=c;
+    b.textContent=c==='auto'?'Auto':LANGS[c];
+    b.onclick=()=>{sel.value=c;sync()};
+    box.appendChild(b);
+  });
+}
+function sync(){
+  document.querySelectorAll('#chipsFrom .chip').forEach(b=>b.classList.toggle('on',b.dataset.c===from.value));
+  document.querySelectorAll('#chipsTo .chip').forEach(b=>b.classList.toggle('on',b.dataset.c===to.value));
+}
+from.onchange=to.onchange=sync;
+async function init(){
+  try{
+    LANGS=await (await fetch('/api/languages')).json();
+    fill(from,true);fill(to,false);
+    chips($('chipsFrom'),from,true);chips($('chipsTo'),to,false);
+    from.value='auto';to.value='es';sync();
+  }catch(e){show('Cannot reach the server. Start it with: npm start',true)}
+}
+init();
+
+function show(t,isErr){
+  out.textContent=t;
+  out.classList.toggle('empty',!!isErr||!t);
+  out.classList.toggle('err',!!isErr);
+}
+
+async function translate(){
+  const q=src.value.trim();
+  if(!q){show('Please enter some text first.',true);return}
+  go.disabled=true;go.textContent='Translating…';detected='';
+  try{
+    const r=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q,from:from.value,to:to.value})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Request failed');
+    lastText=d.translatedText;
+    detected=d.detected||'';
+    show(lastText);
+    if(from.value==='auto'&&LANGS[detected]){
+      from.options[0].textContent=LANGS[detected]+' · detected';
+    }
+  }catch(e){
+    show(e.message==='Failed to fetch'?'Cannot reach the server. Make sure it is running (npm start).':'Translation failed: '+e.message,true);
+  }
+  go.disabled=false;go.textContent='Translate';
+}
+go.onclick=translate;
+src.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')translate()});
+src.oninput=()=>{$('count').textContent=src.value.length+'/5000'};
+$('clear').onclick=()=>{src.value='';$('count').textContent='0/5000';show('Translation appears here',true);lastText='';src.focus()};
+
+$('swap').onclick=()=>{
+  const f=from.value==='auto'?(LANGS[detected]?detected:'en'):from.value;
+  const t=to.value;
+  from.value=t;to.value=f;
+  if(lastText){src.value=lastText;$('count').textContent=src.value.length+'/5000'}
+  show('Press Translate',true);sync();
+};
+
+function speak(text,lang){
+  if(!text||!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);u.lang=lang;speechSynthesis.speak(u);
+}
+$('listenSrc').onclick=()=>speak(src.value,from.value==='auto'?(detected||'en'):from.value);
+$('listenOut').onclick=()=>speak(lastText,to.value);
+
+$('copy').onclick=async()=>{
+  if(!lastText)return;
+  const b=$('copy');
+  try{await navigator.clipboard.writeText(lastText);b.textContent='✓ Copied'}
+  catch{b.textContent='Copy failed'}
+  setTimeout(()=>b.textContent='⧉ Copy',1500);
+};
+</script>
+</body>
+</html>
